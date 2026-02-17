@@ -85,7 +85,7 @@ describe("AppleContainer command construction", () => {
       name: "opencode-test",
       image: "kalilinux/kali-rolling",
       cwd: "/tmp/project",
-      publish: "127.0.0.1:4123:4123",
+      publish: ["127.0.0.1:4123:4123", "127.0.0.1:19876:19876", "127.0.0.1:1455:1455"],
       mounts: ["/tmp/project", "/tmp/opencode"],
       env: ["OPENCODE_SERVER_PASSWORD=secret"],
       binary: "/tmp/opencode/opencode-linux-arm64-v1.0.0",
@@ -99,6 +99,8 @@ describe("AppleContainer command construction", () => {
     expect(cmd).toContain("kalilinux/kali-rolling")
     expect(cmd).toContain("/tmp/opencode/opencode-linux-arm64-v1.0.0")
     expect(cmd).toContain("127.0.0.1:4123:4123")
+    expect(cmd).toContain("127.0.0.1:19876:19876")
+    expect(cmd).toContain("127.0.0.1:1455:1455")
     expect(cmd).toContain("OPENCODE_SERVER_PASSWORD=secret")
     expect(cmd).toContain("/tmp/project:/tmp/project")
   })
