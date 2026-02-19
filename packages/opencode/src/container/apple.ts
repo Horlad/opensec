@@ -133,8 +133,7 @@ export namespace AppleContainer {
       cors,
     })
     const url = `http://${display(host)}:${port}`
-    const envs = vars()
-    const vars = uniqenv([
+    const envs = uniqenv([
       ...env(),
       `OPENCODE_MCP_OAUTH_CALLBACK_PORT=${callbackPort}`,
       "OPENCODE_MCP_OAUTH_CALLBACK_HOST=0.0.0.0",

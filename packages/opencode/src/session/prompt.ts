@@ -1627,7 +1627,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const source = {
       ...process.env,
       ...shellEnv.env,
-    )
+    }
     const proc = spawn(shell, args, {
       cwd,
       detached: process.platform !== "win32",
