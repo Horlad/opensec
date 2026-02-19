@@ -3,6 +3,7 @@ set -euo pipefail
 APP=opencode
 APPLE_CONTAINER_RELEASE_API="https://api.github.com/repos/apple/container/releases/latest"
 APPLE_CONTAINER_IMAGE="kalilinux/kali-rolling"
+APPLE_CONTAINER_METAPACKAGE="kali-linux-headless"
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -264,6 +265,44 @@ apple_container_pkg_url() {
     printf "%s" "$pkg_url"
 }
 
+apple_container_has_metapackage() {
+    local container_bin="$1"
+    "$container_bin" run --rm --platform linux/arm64 "$APPLE_CONTAINER_IMAGE" dpkg-query -W "$APPLE_CONTAINER_METAPACKAGE" >/dev/null 2>&1
+}
+
+ensure_apple_container_metapackage() {
+    local container_bin="$1"
+
+    if apple_container_has_metapackage "$container_bin"; then
+        return
+    fi
+
+    print_message info "${MUTED}Installing ${NC}$APPLE_CONTAINER_METAPACKAGE ${MUTED}in ${NC}$APPLE_CONTAINER_IMAGE"
+
+    local tmp_dir="${TMPDIR:-/tmp}/opencode_container_image_build_$$"
+    mkdir -p "$tmp_dir"
+
+    cat > "$tmp_dir/Dockerfile" <<EOF
+FROM $APPLE_CONTAINER_IMAGE
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y $APPLE_CONTAINER_METAPACKAGE && rm -rf /var/lib/apt/lists/*
+EOF
+
+    if ! "$container_bin" build --platform linux/arm64 -t "$APPLE_CONTAINER_IMAGE" "$tmp_dir" >/dev/null 2>&1; then
+        print_message error "Error: Failed to install '$APPLE_CONTAINER_METAPACKAGE' in image '$APPLE_CONTAINER_IMAGE'"
+        print_message info "Build context retained at: $tmp_dir"
+        exit 1
+    fi
+
+    rm -rf "$tmp_dir"
+
+    if ! apple_container_has_metapackage "$container_bin"; then
+        print_message error "Error: '$APPLE_CONTAINER_METAPACKAGE' is still missing from image '$APPLE_CONTAINER_IMAGE'"
+        print_message info "Run manually: container run --rm --platform linux/arm64 $APPLE_CONTAINER_IMAGE dpkg-query -W $APPLE_CONTAINER_METAPACKAGE"
+        exit 1
+    fi
+}
+
 ensure_apple_container() {
     if ! is_apple_container_target; then
         return
@@ -335,6 +374,8 @@ ensure_apple_container() {
         print_message info "Run manually: container image pull --platform linux/arm64 $APPLE_CONTAINER_IMAGE"
         exit 1
     fi
+
+    ensure_apple_container_metapackage "$container_bin"
 
     print_message info "${MUTED}Apple container runtime is ready${NC}"
 }

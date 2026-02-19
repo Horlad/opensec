@@ -12,6 +12,7 @@ const log = Log.create({ service: "mcp.oauth" })
 
 const OAUTH_CALLBACK_PORT = 19876
 const OAUTH_CALLBACK_PATH = "/mcp/oauth/callback"
+const PORT_MAX = 65535
 
 export interface McpOAuthConfig {
   clientId?: string
@@ -32,7 +33,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   ) {}
 
   get redirectUrl(): string {
-    return `http://127.0.0.1:${OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`
+    return `http://127.0.0.1:${oauthCallbackPort()}${OAUTH_CALLBACK_PATH}`
   }
 
   get clientMetadata(): OAuthClientMetadata {
@@ -149,6 +150,37 @@ export class McpOAuthProvider implements OAuthClientProvider {
     }
     return entry.oauthState
   }
+
+  async invalidateCredentials(type: "all" | "client" | "tokens"): Promise<void> {
+    log.info("invalidating credentials", { mcpName: this.mcpName, type })
+    const entry = await McpAuth.get(this.mcpName)
+    if (!entry) {
+      return
+    }
+
+    switch (type) {
+      case "all":
+        await McpAuth.remove(this.mcpName)
+        break
+      case "client":
+        delete entry.clientInfo
+        await McpAuth.set(this.mcpName, entry)
+        break
+      case "tokens":
+        delete entry.tokens
+        await McpAuth.set(this.mcpName, entry)
+        break
+    }
+  }
 }
 
-export { OAUTH_CALLBACK_PORT, OAUTH_CALLBACK_PATH }
+function oauthCallbackPort() {
+  const value = process.env.OPENCODE_MCP_OAUTH_CALLBACK_PORT
+  if (!value) return OAUTH_CALLBACK_PORT
+  const port = Number(value)
+  if (!Number.isInteger(port)) return OAUTH_CALLBACK_PORT
+  if (port <= 0 || port > PORT_MAX) return OAUTH_CALLBACK_PORT
+  return port
+}
+
+export { OAUTH_CALLBACK_PORT, OAUTH_CALLBACK_PATH, oauthCallbackPort }

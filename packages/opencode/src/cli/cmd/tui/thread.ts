@@ -212,5 +212,6 @@ export const TuiThreadCommand = cmd({
     } finally {
       unguard?.()
     }
+    process.exit(0)
   },
 })
