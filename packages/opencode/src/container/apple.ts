@@ -124,7 +124,7 @@ export namespace AppleContainer {
       cors,
     })
     const url = `http://${display(host)}:${port}`
-    const vars = env()
+    const envs = vars()
     const dirs = mounts({
       directory: input.directory,
       binary,
@@ -144,7 +144,7 @@ export namespace AppleContainer {
       cwd: input.directory,
       publish: pub,
       mounts: dirs,
-      env: vars,
+      env: envs,
       binary,
       serve: launch,
     })
@@ -200,6 +200,10 @@ export namespace AppleContainer {
       path.resolve(Global.Path.cache),
       path.resolve(path.dirname(input.binary)),
     ].filter((item, index, list) => list.indexOf(item) === index)
+  }
+
+  export function env(input?: Record<string, string | undefined>) {
+    return vars(input)
   }
 }
 
@@ -316,8 +320,8 @@ async function linux() {
   return target
 }
 
-function env() {
-  const vars = Object.entries(process.env).flatMap(([key, value]) => {
+function vars(input: Record<string, string | undefined> = process.env) {
+  const list = Object.entries(input).flatMap(([key, value]) => {
     if (!value) return [] as string[]
     if (key.startsWith("OPENCODE_")) return [`${key}=${value}`]
     if (key.endsWith("_API_KEY")) return [`${key}=${value}`]
@@ -325,10 +329,10 @@ function env() {
     if (key.startsWith("AWS_")) return [`${key}=${value}`]
     if (key.startsWith("AZURE_")) return [`${key}=${value}`]
     if (key.startsWith("GOOGLE_")) return [`${key}=${value}`]
-    if (key === "HTTP_PROXY" || key === "HTTPS_PROXY" || key === "NO_PROXY") return [`${key}=${value}`]
     return [] as string[]
   })
-  return vars.filter((item, index, list) => list.indexOf(item) === index)
+  list.push(`OPENCODE_COMMAND_PROXY_STATE_FILE=${path.join(Global.Path.state, "command-proxy.json")}`)
+  return list.filter((item, index, arr) => arr.indexOf(item) === index)
 }
 
 function auth() {

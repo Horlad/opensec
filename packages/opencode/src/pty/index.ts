@@ -8,6 +8,7 @@ import { Instance } from "../project/instance"
 import { lazy } from "@opencode-ai/util/lazy"
 import { Shell } from "@/shell/shell"
 import { Plugin } from "@/plugin"
+import { CommandEnv } from "@/util/command-env"
 
 export namespace Pty {
   const log = Log.create({ service: "pty" })
@@ -136,10 +137,14 @@ export namespace Pty {
 
     const cwd = input.cwd || Instance.directory
     const shellEnv = await Plugin.trigger("shell.env", { cwd }, { env: {} })
-    const env = {
+    const source = {
       ...process.env,
       ...input.env,
       ...shellEnv.env,
+    }
+    const env = {
+      ...source,
+      ...CommandEnv.shell(),
       TERM: "xterm-256color",
       OPENCODE_TERMINAL: "1",
     } as Record<string, string>

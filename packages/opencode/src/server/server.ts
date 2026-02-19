@@ -40,6 +40,8 @@ import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
+import { ProxyRoutes } from "./routes/proxy"
+import { ProxyRuntime } from "@/proxy/runtime"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -55,8 +57,9 @@ export namespace Server {
   }
 
   const app = new Hono()
-  export const App: () => Hono = lazy(
-    () =>
+  export const App: () => Hono = lazy(() => {
+    ProxyRuntime.init()
+    return (
       // TODO: Break server.ts into smaller route files to fix type inference
       app
         .onError((err, c) => {
@@ -232,6 +235,7 @@ export namespace Server {
         .route("/permission", PermissionRoutes())
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
+        .route("/proxy", ProxyRoutes())
         .route("/", FileRoutes())
         .route("/mcp", McpRoutes())
         .route("/tui", TuiRoutes())
@@ -555,8 +559,9 @@ export namespace Server {
             "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:",
           )
           return response
-        }) as unknown as Hono,
-  )
+        }) as unknown as Hono
+    )
+  })
 
   export async function openapi() {
     // Cast to break excessive type recursion from long route chains

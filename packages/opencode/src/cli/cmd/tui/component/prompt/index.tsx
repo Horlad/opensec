@@ -32,6 +32,7 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
+import { ProxyCommand } from "./proxy-command"
 
 export type PromptProps = {
   sessionID?: string
@@ -349,6 +350,24 @@ export function Prompt(props: PromptProps) {
           ))
         },
       },
+      {
+        title: "Proxy",
+        value: "proxy.manage",
+        category: "System",
+        slash: {
+          name: "proxy",
+        },
+        onSelect: () => {
+          input.extmarks.clear()
+          setStore("prompt", {
+            input: "/proxy ",
+            parts: [],
+          })
+          setStore("extmarkToPartIndex", new Map())
+          input.setText("/proxy ")
+          input.gotoBufferEnd()
+        },
+      },
     ]
   })
 
@@ -532,6 +551,11 @@ export function Prompt(props: PromptProps) {
       exit()
       return
     }
+    const proxy = ProxyCommand.parse(store.prompt.input)
+    if (proxy) {
+      await handleProxy(proxy)
+      return
+    }
     const selectedModel = local.model.current()
     if (!selectedModel) {
       promptModelWarning()
@@ -637,12 +661,7 @@ export function Prompt(props: PromptProps) {
       ...store.prompt,
       mode: currentMode,
     })
-    input.extmarks.clear()
-    setStore("prompt", {
-      input: "",
-      parts: [],
-    })
-    setStore("extmarkToPartIndex", new Map())
+    resetPrompt()
     props.onSubmit?.()
 
     // temporary hack to make sure the message is sent
@@ -653,9 +672,88 @@ export function Prompt(props: PromptProps) {
           sessionID,
         })
       }, 50)
-    input.clear()
   }
   const exit = useExit()
+
+  async function handleProxy(parsed: ProxyCommand.Parsed) {
+    if (parsed.type === "invalid") {
+      toast.show({
+        variant: "warning",
+        message: parsed.message,
+        duration: 4000,
+      })
+      return
+    }
+
+    if (parsed.type === "show") {
+      const result = await sdk.client.proxy.get({}, { throwOnError: true }).catch(() => undefined)
+      if (!result?.data) {
+        toast.show({
+          variant: "error",
+          message: "Failed to read proxy settings",
+        })
+        return
+      }
+      await DialogAlert.show(
+        dialog,
+        "Command Proxy",
+        [`Proxy: ${result.data.proxy ?? "off"}`, `No proxy: ${result.data.no ?? "none"}`].join("\n"),
+      )
+      resetPrompt()
+      return
+    }
+
+    const result = await sdk.client.proxy
+      .update(
+        {
+          proxy:
+            parsed.type === "set"
+              ? parsed.proxy
+              : parsed.type === "off"
+                ? null
+                : undefined,
+          no:
+            parsed.type === "set_no"
+              ? parsed.no
+              : parsed.type === "clear_no" || parsed.type === "off"
+                ? null
+                : undefined,
+        },
+        { throwOnError: true },
+      )
+      .catch(() => undefined)
+
+    if (!result?.data) {
+      toast.show({
+        variant: "error",
+        message: "Failed to update proxy settings",
+      })
+      return
+    }
+
+    toast.show({
+      variant: "success",
+      message:
+        parsed.type === "set"
+          ? `Proxy set to ${result.data.proxy}`
+          : parsed.type === "set_no"
+            ? `NO_PROXY set to ${result.data.no}`
+            : parsed.type === "clear_no"
+              ? "NO_PROXY cleared"
+              : "Proxy disabled",
+    })
+    resetPrompt()
+  }
+
+  function resetPrompt() {
+    input.extmarks.clear()
+    setStore("prompt", {
+      input: "",
+      parts: [],
+    })
+    setStore("extmarkToPartIndex", new Map())
+    input.clear()
+  }
 
   function pasteText(text: string, virtualText: string) {
     const currentOffset = input.visualCursor.offset

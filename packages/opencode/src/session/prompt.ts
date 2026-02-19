@@ -45,6 +45,7 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
+import { CommandEnv } from "@/util/command-env"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -1619,13 +1620,17 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const cwd = Instance.directory
     const shellEnv = await Plugin.trigger("shell.env", { cwd }, { env: {} })
+    const source = {
+      ...process.env,
+      ...shellEnv.env,
+    }
     const proc = spawn(shell, args, {
       cwd,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
       env: {
-        ...process.env,
-        ...shellEnv.env,
+        ...source,
+        ...CommandEnv.shell(),
         TERM: "dumb",
       },
     })
@@ -1776,7 +1781,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       const results = await Promise.all(
         shell.map(async ([, cmd]) => {
           try {
-            return await $`${{ raw: cmd }}`.quiet().nothrow().text()
+            const env = {
+              ...process.env,
+              ...CommandEnv.shell(),
+            }
+            return await $`${{ raw: cmd }}`.env(env).quiet().nothrow().text()
           } catch (error) {
             return `Error executing command: ${error instanceof Error ? error.message : String(error)}`
           }

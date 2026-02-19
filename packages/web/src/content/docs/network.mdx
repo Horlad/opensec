@@ -1,41 +1,44 @@
 ---
 title: Network
-description: Configure proxies and custom certificates.
+description: Configure command proxying and custom certificates.
 ---
 
-OpenCode supports standard proxy environment variables and custom certificates for enterprise network environments.
+OpenCode supports command traffic proxying through the TUI `/proxy` command and custom certificates for enterprise network environments.
 
 ---
 
 ## Proxy
 
-OpenCode respects standard proxy environment variables.
+OpenCode keeps its own LLM/API requests direct.
+Only code and CLI command execution traffic is proxied.
+
+Use `/proxy` from the TUI:
 
 ```bash
-# HTTPS proxy (recommended)
-export HTTPS_PROXY=https://proxy.example.com:8080
+# Show current command proxy settings
+/proxy
 
-# HTTP proxy (if HTTPS not available)
-export HTTP_PROXY=http://proxy.example.com:8080
+# Set proxy for command execution
+/proxy http://proxy.example.com:8080
 
-# Bypass proxy for local server (required)
-export NO_PROXY=localhost,127.0.0.1
+# Set bypass list for command execution
+/proxy no localhost,127.0.0.1
+
+# Disable command proxying
+/proxy off
 ```
 
-:::caution
-The TUI communicates with a local HTTP server. You must bypass the proxy for this connection to prevent routing loops.
-:::
-
-You can configure the server's port and hostname using [CLI flags](/docs/cli#run).
+`/proxy` settings are persisted globally and used in both local mode and Apple container mode.
+Proxy environment variables are not used as a configuration source.
 
 ---
 
 ### Authenticate
 
-If your proxy requires basic authentication, include credentials in the URL.
+If your proxy requires basic authentication, include credentials in the `/proxy` URL.
 
 ```bash
-export HTTPS_PROXY=http://username:password@proxy.example.com:8080
+/proxy http://username:password@proxy.example.com:8080
 ```
 
 :::caution
@@ -54,4 +57,4 @@ If your enterprise uses custom CAs for HTTPS connections, configure OpenCode to 
 export NODE_EXTRA_CA_CERTS=/path/to/ca-cert.pem
 ```
 
-This works for both proxy connections and direct API access.
+This works for direct API access.
