@@ -105,6 +105,45 @@ describe("AppleContainer command construction", () => {
     expect(cmd).toContain("/tmp/project:/tmp/project")
   })
 
+  test("does not forward proxy env values into container", () => {
+    const list = AppleContainer.env({
+      OPENCODE_SERVER_PASSWORD: "secret",
+      OPENAI_API_KEY: "key",
+      OPENCODE_PROXY: "http://proxy-shared:8080",
+      OPENCODE_PROXY_HTTP: "http://proxy-http:8080",
+      OPENCODE_PROXY_HTTPS: "http://proxy-https:8443",
+      OPENCODE_PROXY_ALL: "socks5://proxy-all:1080",
+      OPENCODE_PROXY_NO: "localhost,127.0.0.1",
+    })
+
+    expect(list).toContain("OPENCODE_SERVER_PASSWORD=secret")
+    expect(list).toContain("OPENAI_API_KEY=key")
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTP="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTPS="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_ALL="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_NO="))).toBe(false)
+    expect(list.some((item) => item.startsWith("HTTP_PROXY="))).toBe(false)
+    expect(list.some((item) => item.startsWith("HTTPS_PROXY="))).toBe(false)
+    expect(list.some((item) => item.startsWith("ALL_PROXY="))).toBe(false)
+    expect(list.some((item) => item.startsWith("NO_PROXY="))).toBe(false)
+  })
+
+  test("does not use legacy apple container proxy aliases", () => {
+    const list = AppleContainer.env({
+      OPENCODE_PROXY: "http://proxy-command:8080",
+      OPENCODE_APPLE_CONTAINER_PROXY: "http://proxy-shared:8080",
+      OPENCODE_APPLE_CONTAINER_HTTPS_PROXY: "http://proxy-https:8443",
+      OPENCODE_APPLE_CONTAINER_NO_PROXY: "localhost,127.0.0.1",
+    })
+
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTP="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTPS="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_ALL="))).toBe(false)
+    expect(list.some((item) => item.startsWith("OPENCODE_PROXY_NO="))).toBe(false)
+  })
+
   test("mounts are deduplicated", () => {
     const list = AppleContainer.mounts({
       directory: "/tmp/project",

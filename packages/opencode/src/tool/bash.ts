@@ -17,6 +17,7 @@ import { Shell } from "@/shell/shell"
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 import { Plugin } from "@/plugin"
+import { CommandEnv } from "@/util/command-env"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -168,12 +169,17 @@ export const BashTool = Tool.define("bash", async () => {
         { cwd, sessionID: ctx.sessionID, callID: ctx.callID },
         { env: {} },
       )
+      const env = {
+        ...process.env,
+        ...shellEnv.env,
+      }
+      
       const proc = spawn(params.command, {
         shell,
         cwd,
         env: {
-          ...process.env,
-          ...shellEnv.env,
+          ...env,
+          ...CommandEnv.shell(),
         },
         stdio: ["ignore", "pipe", "pipe"],
         detached: process.platform !== "win32",

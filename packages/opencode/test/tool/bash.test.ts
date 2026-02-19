@@ -5,6 +5,7 @@ import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 import type { PermissionNext } from "../../src/permission/next"
 import { Truncate } from "../../src/tool/truncation"
+import { ProxyRuntime } from "../../src/proxy/runtime"
 
 const ctx = {
   sessionID: "test",
@@ -36,6 +37,35 @@ describe("tool.bash", () => {
         expect(result.metadata.output).toContain("test")
       },
     })
+  })
+
+  test("injects command proxy env into spawned shell", async () => {
+    ProxyRuntime.update({
+      proxy: "http://proxy-command:8080",
+      no: null,
+    })
+    try {
+      await Instance.provide({
+        directory: projectRoot,
+        fn: async () => {
+          const bash = await BashTool.init()
+          const result = await bash.execute(
+            {
+              command: "printf '%s' \"$HTTP_PROXY\"",
+              description: "Print command proxy",
+            },
+            ctx,
+          )
+          expect(result.metadata.exit).toBe(0)
+          expect(result.metadata.output).toContain("http://proxy-command:8080")
+        },
+      })
+    } finally {
+      ProxyRuntime.update({
+        proxy: null,
+        no: null,
+      })
+    }
   })
 })
 

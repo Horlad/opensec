@@ -80,6 +80,9 @@ import type {
   ProviderOauthAuthorizeResponses,
   ProviderOauthCallbackErrors,
   ProviderOauthCallbackResponses,
+  ProxyGetResponses,
+  ProxyUpdateErrors,
+  ProxyUpdateResponses,
   PtyConnectErrors,
   PtyConnectResponses,
   PtyCreateErrors,
@@ -2166,6 +2169,64 @@ export class Provider extends HeyApiClient {
   }
 }
 
+export class Proxy extends HeyApiClient {
+  /**
+   * Get command proxy configuration
+   *
+   * Retrieve the current command proxy configuration managed by /proxy.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<ProxyGetResponses, unknown, ThrowOnError>({
+      url: "/proxy",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update command proxy configuration
+   *
+   * Update command proxy configuration managed by /proxy.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      proxy?: string | null
+      no?: string | null
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "proxy" },
+            { in: "body", key: "no" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<ProxyUpdateResponses, ProxyUpdateErrors, ThrowOnError>({
+      url: "/proxy",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Find extends HeyApiClient {
   /**
    * Find text
@@ -3254,6 +3315,11 @@ export class OpencodeClient extends HeyApiClient {
   private _provider?: Provider
   get provider(): Provider {
     return (this._provider ??= new Provider({ client: this.client }))
+  }
+
+  private _proxy?: Proxy
+  get proxy(): Proxy {
+    return (this._proxy ??= new Proxy({ client: this.client }))
   }
 
   private _find?: Find

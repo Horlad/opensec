@@ -2111,6 +2111,11 @@ export type ProviderAuthAuthorization = {
   instructions: string
 }
 
+export type CommandProxy = {
+  proxy?: string
+  no?: string
+}
+
 export type Symbol = {
   name: string
   kind: number
@@ -4192,6 +4197,54 @@ export type ProviderOauthCallbackResponses = {
 }
 
 export type ProviderOauthCallbackResponse = ProviderOauthCallbackResponses[keyof ProviderOauthCallbackResponses]
+
+export type ProxyGetData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/proxy"
+}
+
+export type ProxyGetResponses = {
+  /**
+   * Current command proxy configuration
+   */
+  200: CommandProxy
+}
+
+export type ProxyGetResponse = ProxyGetResponses[keyof ProxyGetResponses]
+
+export type ProxyUpdateData = {
+  body?: {
+    proxy?: string | null
+    no?: string | null
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/proxy"
+}
+
+export type ProxyUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ProxyUpdateError = ProxyUpdateErrors[keyof ProxyUpdateErrors]
+
+export type ProxyUpdateResponses = {
+  /**
+   * Updated command proxy configuration
+   */
+  200: CommandProxy
+}
+
+export type ProxyUpdateResponse = ProxyUpdateResponses[keyof ProxyUpdateResponses]
 
 export type FindTextData = {
   body?: never
