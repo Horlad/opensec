@@ -8,6 +8,8 @@ import path from "path"
 const IMAGE = "kalilinux/kali-rolling"
 const HEALTH = "/global/health"
 const TIMEOUT = 30000
+const MCP_OAUTH_CALLBACK_PORT = 19876
+const CODEX_OAUTH_PORT = 1455
 
 type Result = {
   code: number
@@ -27,7 +29,7 @@ type Run = {
   name: string
   image: string
   cwd: string
-  publish: string
+  publish: string[]
   mounts: string[]
   env: string[]
   binary: string
@@ -89,9 +91,8 @@ export namespace AppleContainer {
       input.name,
       "-w",
       input.cwd,
-      "-p",
-      input.publish,
     ]
+    input.publish.forEach((item) => cmd.push("-p", item))
     input.mounts.forEach((item) => cmd.push("-v", `${item}:${item}`))
     input.env.forEach((item) => cmd.push("-e", item))
     cmd.push(input.image, input.binary, ...input.serve)
@@ -114,6 +115,14 @@ export namespace AppleContainer {
     const host = loopback(input.network.hostname || "127.0.0.1")
     const inputPort = typeof input.network.port === "number" ? input.network.port : 0
     const port = inputPort === 0 ? await random() : inputPort
+    const callbackPort = await callback(port)
+    const codexPort = CODEX_OAUTH_PORT
+    if (port === codexPort) {
+      throw new Error(`Port ${codexPort} is reserved for Codex OAuth callback. Start server on a different port.`)
+    }
+    if (callbackPort === codexPort) {
+      throw new Error(`Port ${codexPort} conflicts with MCP OAuth callback port. Set OPENCODE_MCP_OAUTH_CALLBACK_PORT.`)
+    }
     const mdns = input.network.mdns === true
     const mdnsDomain = input.network.mdnsDomain || "opencode.local"
     const cors = Array.isArray(input.network.cors) ? input.network.cors : input.network.cors ? [input.network.cors] : []
@@ -124,16 +133,33 @@ export namespace AppleContainer {
       cors,
     })
     const url = `http://${display(host)}:${port}`
-    const vars = env()
+    const vars = uniqenv([
+      ...env(),
+      `OPENCODE_MCP_OAUTH_CALLBACK_PORT=${callbackPort}`,
+      "OPENCODE_MCP_OAUTH_CALLBACK_HOST=0.0.0.0",
+      "OPENCODE_CODEX_OAUTH_HOST=0.0.0.0",
+    ])
     const dirs = mounts({
       directory: input.directory,
       binary,
     })
-    const pub = publish({
-      host,
-      hostPort: port,
-      containerPort: port,
-    })
+    const pub = [
+      publish({
+        host,
+        hostPort: port,
+        containerPort: port,
+      }),
+      publish({
+        host,
+        hostPort: callbackPort,
+        containerPort: callbackPort,
+      }),
+      publish({
+        host,
+        hostPort: codexPort,
+        containerPort: codexPort,
+      }),
+    ].filter((item, index, list) => list.indexOf(item) === index)
 
     await bootstrap(image)
 
@@ -265,6 +291,15 @@ async function random() {
   return port
 }
 
+async function callback(port: number) {
+  const value = Flag.OPENCODE_MCP_OAUTH_CALLBACK_PORT
+  if (value) return value
+  if (port !== MCP_OAUTH_CALLBACK_PORT) return MCP_OAUTH_CALLBACK_PORT
+  const result = await random()
+  if (result !== port) return result
+  return callback(port)
+}
+
 async function linux() {
   const override = Flag.OPENCODE_APPLE_CONTAINER_BINARY
   if (override) return override
@@ -329,6 +364,16 @@ function env() {
     return [] as string[]
   })
   return vars.filter((item, index, list) => list.indexOf(item) === index)
+}
+
+function uniqenv(input: string[]) {
+  const map = input.reduce((acc, item) => {
+    const index = item.indexOf("=")
+    if (index === -1) return acc
+    acc.set(item.slice(0, index), item)
+    return acc
+  }, new Map<string, string>())
+  return [...map.values()]
 }
 
 function auth() {

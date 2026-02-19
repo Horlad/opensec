@@ -11,6 +11,7 @@ const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
+const OAUTH_HOST = process.env.OPENCODE_CODEX_OAUTH_HOST || "127.0.0.1"
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
 
 interface PkceCodes {
@@ -248,6 +249,7 @@ async function startOAuthServer(): Promise<{ port: number; redirectUri: string }
   }
 
   oauthServer = Bun.serve({
+    hostname: OAUTH_HOST,
     port: OAUTH_PORT,
     fetch(req) {
       const url = new URL(req.url)
