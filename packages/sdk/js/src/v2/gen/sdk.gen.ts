@@ -13,6 +13,11 @@ import type {
   AuthRemoveResponses,
   AuthSetErrors,
   AuthSetResponses,
+  CertInstallErrors,
+  CertInstallResponses,
+  CertListResponses,
+  CertRemoveErrors,
+  CertRemoveResponses,
   CommandListResponses,
   Config as Config3,
   ConfigGetResponses,
@@ -2227,6 +2232,94 @@ export class Proxy extends HeyApiClient {
   }
 }
 
+export class Cert extends HeyApiClient {
+  /**
+   * List managed command certificates
+   *
+   * List certificates managed by /cert.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<CertListResponses, unknown, ThrowOnError>({
+      url: "/cert",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Install and persist command certificate
+   *
+   * Install a CA certificate into the system trust store and persist it for /cert management.
+   */
+  public install<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      content?: string
+      encoding?: "base64" | "utf8"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "content" },
+            { in: "body", key: "encoding" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<CertInstallResponses, CertInstallErrors, ThrowOnError>({
+      url: "/cert",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove managed command certificate
+   *
+   * Remove a managed certificate from system trust store and persisted /cert state.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      fingerprint: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "fingerprint" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<CertRemoveResponses, CertRemoveErrors, ThrowOnError>({
+      url: "/cert/{fingerprint}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Find extends HeyApiClient {
   /**
    * Find text
@@ -3320,6 +3413,11 @@ export class OpencodeClient extends HeyApiClient {
   private _proxy?: Proxy
   get proxy(): Proxy {
     return (this._proxy ??= new Proxy({ client: this.client }))
+  }
+
+  private _cert?: Cert
+  get cert(): Cert {
+    return (this._cert ??= new Cert({ client: this.client }))
   }
 
   private _find?: Find

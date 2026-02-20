@@ -42,6 +42,8 @@ import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { ProxyRoutes } from "./routes/proxy"
 import { ProxyRuntime } from "@/proxy/runtime"
+import { CertRoutes } from "./routes/cert"
+import { CertRuntime } from "@/cert/runtime"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -59,6 +61,7 @@ export namespace Server {
   const app = new Hono()
   export const App: () => Hono = lazy(() => {
     ProxyRuntime.init()
+    void CertRuntime.init()
     return (
       // TODO: Break server.ts into smaller route files to fix type inference
       app
@@ -236,6 +239,7 @@ export namespace Server {
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
         .route("/proxy", ProxyRoutes())
+        .route("/cert", CertRoutes())
         .route("/", FileRoutes())
         .route("/mcp", McpRoutes())
         .route("/tui", TuiRoutes())

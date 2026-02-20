@@ -1,6 +1,8 @@
 import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, t, dim, fg } from "@opentui/core"
 import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
 import "opentui-spinner/solid"
+import path from "path"
+import { fileURLToPath } from "url"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { EmptyBorder } from "@tui/component/border"
@@ -33,6 +35,8 @@ import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
 import { ProxyCommand } from "./proxy-command"
+import { CertCommand } from "./cert-command"
+import { DialogCert } from "../dialog-cert"
 
 export type PromptProps = {
   sessionID?: string
@@ -551,11 +555,35 @@ export function Prompt(props: PromptProps) {
       exit()
       return
     }
-    const proxy = ProxyCommand.parse(store.prompt.input)
+    let inputText = store.prompt.input
+
+    // Expand pasted text inline before command parsing and submission.
+    const allExtmarks = input.extmarks.getAllForTypeId(promptPartTypeId)
+    const sortedExtmarks = allExtmarks.sort((a: { start: number }, b: { start: number }) => b.start - a.start)
+    for (const extmark of sortedExtmarks) {
+      const partIndex = store.extmarkToPartIndex.get(extmark.id)
+      if (partIndex === undefined) continue
+      const part = store.prompt.parts[partIndex]
+      if (part?.type !== "text" || !part.text) continue
+      const before = inputText.slice(0, extmark.start)
+      const after = inputText.slice(extmark.end)
+      inputText = before + part.text + after
+    }
+
+    const nonTextParts = store.prompt.parts.filter((part) => part.type !== "text")
+
+    const cert = CertCommand.parse(inputText)
+    if (cert) {
+      await handleCert(cert, nonTextParts)
+      return
+    }
+
+    const proxy = ProxyCommand.parse(inputText)
     if (proxy) {
       await handleProxy(proxy)
       return
     }
+
     const selectedModel = local.model.current()
     if (!selectedModel) {
       promptModelWarning()
@@ -568,26 +596,6 @@ export function Prompt(props: PromptProps) {
           return sessionID
         })()
     const messageID = Identifier.ascending("message")
-    let inputText = store.prompt.input
-
-    // Expand pasted text inline before submitting
-    const allExtmarks = input.extmarks.getAllForTypeId(promptPartTypeId)
-    const sortedExtmarks = allExtmarks.sort((a: { start: number }, b: { start: number }) => b.start - a.start)
-
-    for (const extmark of sortedExtmarks) {
-      const partIndex = store.extmarkToPartIndex.get(extmark.id)
-      if (partIndex !== undefined) {
-        const part = store.prompt.parts[partIndex]
-        if (part?.type === "text" && part.text) {
-          const before = inputText.slice(0, extmark.start)
-          const after = inputText.slice(extmark.end)
-          inputText = before + part.text + after
-        }
-      }
-    }
-
-    // Filter out text parts (pasted content) since they're now expanded inline
-    const nonTextParts = store.prompt.parts.filter((part) => part.type !== "text")
 
     // Capture mode before it gets reset
     const currentMode = store.mode
@@ -674,6 +682,94 @@ export function Prompt(props: PromptProps) {
       }, 50)
   }
   const exit = useExit()
+
+  async function handleCert(parsed: CertCommand.Parsed, parts: PromptInfo["parts"]) {
+    if (parsed.type === "invalid") {
+      toast.show({
+        variant: "warning",
+        message: parsed.message,
+        duration: 4000,
+      })
+      return
+    }
+
+    if (parsed.type === "open") {
+      dialog.replace(() => <DialogCert />)
+      resetPrompt()
+      return
+    }
+
+    const bytes =
+      parsed.type === "install_content"
+        ? Buffer.from(parsed.content)
+        : parsed.type === "install_path"
+          ? await Bun.file(
+              path.isAbsolute(parsed.path)
+                ? parsed.path
+                : path.resolve(sync.data.path.directory || process.cwd(), parsed.path),
+            )
+              .bytes()
+              .catch(() => undefined)
+          : await (async () => {
+              const match = parts.find(
+                (part) =>
+                  part.type === "file" &&
+                  part.source &&
+                  "text" in part.source &&
+                  part.source.text &&
+                  part.source.text.value === parsed.selector,
+              )
+              if (!match || match.type !== "file") return
+              if (match.url.startsWith("data:")) {
+                const value = match.url.match(/^data:[^,]*;base64,(.*)$/)?.[1]
+                if (!value) return
+                return Buffer.from(value, "base64")
+              }
+              if (match.url.startsWith("file://") && URL.canParse(match.url)) {
+                return Bun.file(fileURLToPath(match.url)).bytes().catch(() => undefined)
+              }
+              if (!match.source || !("path" in match.source) || typeof match.source.path !== "string") return
+              const file = path.isAbsolute(match.source.path)
+                ? match.source.path
+                : path.resolve(sync.data.path.directory || process.cwd(), match.source.path)
+              return Bun.file(file).bytes().catch(() => undefined)
+            })()
+
+    if (!bytes || bytes.length === 0) {
+      toast.show({
+        variant: "error",
+        message:
+          parsed.type === "install_part"
+            ? "Failed to resolve /cert @file input. Attach a file with @ and retry."
+            : "Failed to read certificate content",
+      })
+      return
+    }
+
+    const result = await sdk.client.cert
+      .install(
+        {
+          content: Buffer.from(bytes).toString("base64"),
+          encoding: "base64",
+        },
+        { throwOnError: true },
+      )
+      .catch(() => undefined)
+
+    if (!result?.data) {
+      toast.show({
+        variant: "error",
+        message: "Failed to install certificate",
+      })
+      return
+    }
+
+    toast.show({
+      variant: "success",
+      message: `Installed ${result.data.entry.subject || result.data.entry.fingerprint.slice(0, 12)}`,
+    })
+    resetPrompt()
+  }
 
   async function handleProxy(parsed: ProxyCommand.Parsed) {
     if (parsed.type === "invalid") {

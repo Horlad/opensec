@@ -2116,6 +2116,24 @@ export type CommandProxy = {
   no?: string
 }
 
+export type CommandCertificate = {
+  fingerprint: string
+  pem: string
+  subject: string
+  issuer: string
+  created_at: number
+}
+
+export type CommandCertificateRuntime = {
+  mode: "macos-host" | "kali-container" | "linux-host"
+  applied: boolean
+}
+
+export type CommandCertificateResult = {
+  entry: CommandCertificate
+  runtime: CommandCertificateRuntime
+}
+
 export type Symbol = {
   name: string
   kind: number
@@ -4245,6 +4263,87 @@ export type ProxyUpdateResponses = {
 }
 
 export type ProxyUpdateResponse = ProxyUpdateResponses[keyof ProxyUpdateResponses]
+
+export type CertListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/cert"
+}
+
+export type CertListResponses = {
+  /**
+   * Managed certificates
+   */
+  200: Array<CommandCertificate>
+}
+
+export type CertListResponse = CertListResponses[keyof CertListResponses]
+
+export type CertInstallData = {
+  body?: {
+    content: string
+    encoding?: "base64" | "utf8"
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/cert"
+}
+
+export type CertInstallErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type CertInstallError = CertInstallErrors[keyof CertInstallErrors]
+
+export type CertInstallResponses = {
+  /**
+   * Installed certificate
+   */
+  200: CommandCertificateResult
+}
+
+export type CertInstallResponse = CertInstallResponses[keyof CertInstallResponses]
+
+export type CertRemoveData = {
+  body?: never
+  path: {
+    fingerprint: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/cert/{fingerprint}"
+}
+
+export type CertRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type CertRemoveError = CertRemoveErrors[keyof CertRemoveErrors]
+
+export type CertRemoveResponses = {
+  /**
+   * Removed certificate
+   */
+  200: CommandCertificateResult
+}
+
+export type CertRemoveResponse = CertRemoveResponses[keyof CertRemoveResponses]
 
 export type FindTextData = {
   body?: never

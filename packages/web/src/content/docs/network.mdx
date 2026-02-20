@@ -51,10 +51,30 @@ For proxies requiring advanced authentication like NTLM or Kerberos, consider us
 
 ## Custom certificates
 
-If your enterprise uses custom CAs for HTTPS connections, configure OpenCode to trust them.
+If your enterprise uses a private CA, use `/cert` in the TUI to manage trusted command certificates.
 
 ```bash
-export NODE_EXTRA_CA_CERTS=/path/to/ca-cert.pem
+# Open certificate manager menu
+/cert
+
+# Install CA from pasted PEM body
+/cert
+-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+
+# Install CA from attached prompt file
+/cert @certs/internal-ca.pem
+
+# Install CA from local file path
+/cert /path/to/internal-ca.der
 ```
 
-This works for direct API access.
+The `/cert` menu lets you:
+- View OpenCode-managed certificates
+- Add a certificate from PEM text or file path
+- Remove a certificate with `ctrl+d` (press twice to confirm)
+
+OpenCode persists managed certificates and reapplies them automatically when a new Apple-container Kali runtime starts.
+
+On macOS host mode, certificate add/remove uses an administrative prompt so you can authorize trust-store changes with your password.

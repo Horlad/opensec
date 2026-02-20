@@ -118,6 +118,9 @@ describe("AppleContainer command construction", () => {
 
     expect(list).toContain("OPENCODE_SERVER_PASSWORD=secret")
     expect(list).toContain("OPENAI_API_KEY=key")
+    expect(list.some((item) => item.startsWith("OPENCODE_COMMAND_PROXY_STATE_FILE="))).toBe(true)
+    expect(list.some((item) => item.startsWith("OPENCODE_COMMAND_CERT_STATE_FILE="))).toBe(true)
+    expect(list).toContain("OPENCODE_APPLE_CONTAINER=1")
     expect(list.some((item) => item.startsWith("OPENCODE_PROXY="))).toBe(false)
     expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTP="))).toBe(false)
     expect(list.some((item) => item.startsWith("OPENCODE_PROXY_HTTPS="))).toBe(false)

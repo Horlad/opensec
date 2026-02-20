@@ -358,6 +358,27 @@ async function linux() {
 function vars(input: Record<string, string | undefined> = process.env) {
   const list = Object.entries(input).flatMap(([key, value]) => {
     if (!value) return [] as string[]
+    if (
+      key === "OPENCODE_PROXY" ||
+      key === "OPENCODE_PROXY_HTTP" ||
+      key === "OPENCODE_PROXY_HTTPS" ||
+      key === "OPENCODE_PROXY_ALL" ||
+      key === "OPENCODE_PROXY_NO" ||
+      key === "OPENCODE_APPLE_CONTAINER_PROXY" ||
+      key === "OPENCODE_APPLE_CONTAINER_HTTP_PROXY" ||
+      key === "OPENCODE_APPLE_CONTAINER_HTTPS_PROXY" ||
+      key === "OPENCODE_APPLE_CONTAINER_ALL_PROXY" ||
+      key === "OPENCODE_APPLE_CONTAINER_NO_PROXY" ||
+      key === "HTTP_PROXY" ||
+      key === "HTTPS_PROXY" ||
+      key === "ALL_PROXY" ||
+      key === "NO_PROXY" ||
+      key === "http_proxy" ||
+      key === "https_proxy" ||
+      key === "all_proxy" ||
+      key === "no_proxy"
+    )
+      return [] as string[]
     if (key.startsWith("OPENCODE_")) return [`${key}=${value}`]
     if (key.endsWith("_API_KEY")) return [`${key}=${value}`]
     if (key.endsWith("_TOKEN")) return [`${key}=${value}`]
@@ -367,6 +388,8 @@ function vars(input: Record<string, string | undefined> = process.env) {
     return [] as string[]
   })
   list.push(`OPENCODE_COMMAND_PROXY_STATE_FILE=${path.join(Global.Path.state, "command-proxy.json")}`)
+  list.push(`OPENCODE_COMMAND_CERT_STATE_FILE=${path.join(Global.Path.state, "command-cert.json")}`)
+  list.push("OPENCODE_APPLE_CONTAINER=1")
   return list.filter((item, index, arr) => arr.indexOf(item) === index)
 }
 
