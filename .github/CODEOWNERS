@@ -1,3 +1,9 @@
-# web + desktop packages
-packages/app/      @Hona @Brendonovich
-packages/desktop/  @Hona @Brendonovich
+* @Horlad
+
+# Security-sensitive and release infrastructure
+/.github/ @Horlad
+/.opencode/ @Horlad
+/packages/opencode/src/ @Horlad
+/packages/server/ @Horlad
+/packages/core/ @Horlad
+/script/ @Horlad
