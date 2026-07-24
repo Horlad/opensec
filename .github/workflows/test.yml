@@ -63,6 +63,18 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
             turbo-${{ runner.os }}-
 
+      - name: Prime ripgrep
+        if: runner.os == 'Windows'
+        run: >-
+          bun --cwd packages/core -e
+          'import { Effect } from "effect";
+          import { RipgrepBinary } from "./src/ripgrep/binary";
+          await Effect.runPromise(
+            Effect.flatMap(RipgrepBinary.Service, (ripgrep) => ripgrep.filepath).pipe(
+              Effect.provide(RipgrepBinary.defaultLayer),
+            ),
+          );'
+
       - name: Run unit tests
         timeout-minutes: 20
         run: GITHUB_ACTIONS=false bun turbo test

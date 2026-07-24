@@ -65,8 +65,9 @@ describe("opencode run (non-interactive subprocess)", () => {
   // Regression for #27371: an unknown model used to hang the process forever
   // waiting on a session.status === idle event that never arrived. The fix
   // makes the SDK call surface an error promptly so the process exits nonzero.
-  // We assert nonzero exit AND wall-clock under the harness timeout — a hang
-  // would expire the timeout and produce a different (signal-killed) failure.
+  // We assert nonzero exit and that the harness did not time out. Wall-clock
+  // includes process cleanup, so allow a small scheduling margin around the
+  // harness deadline.
   cliIt.concurrent(
     "exits nonzero promptly when the model is unknown (regression for #27371)",
     ({ opencode }) =>
@@ -76,7 +77,8 @@ describe("opencode run (non-interactive subprocess)", () => {
           timeoutMs: 15_000,
         })
         expect(result.exitCode).not.toBe(0)
-        expect(result.durationMs).toBeLessThan(15_000)
+        expect(result.stderr).not.toContain("Timed out")
+        expect(result.durationMs).toBeLessThan(20_000)
       }),
     30_000,
   )
