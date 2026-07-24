@@ -2,11 +2,7 @@
 import { tool } from "@opencode-ai/plugin"
 
 const TEAM = {
-  tui: ["kommander", "simonklee"],
-  desktop_web: ["Hona", "Brendonovich"],
-  core: ["jlongster", "rekram1-node", "nexxeln", "kitlangton", "starptech"],
-  inference: ["fwang", "MrMushrooooom", "starptech"],
-  windows: ["Hona"],
+  owner: ["Horlad"],
 } as const
 
 function pick<T>(items: readonly T[]) {
@@ -46,8 +42,8 @@ Provide the team that should own the issue. This tool picks a random assignee fr
   },
   async execute(args) {
     const issue = getIssueNumber()
-    const owner = "anomalyco"
-    const repo = "opencode"
+    const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? "Horlad/opensec").split("/")
+    if (!owner || !repo) throw new Error("GITHUB_REPOSITORY must use owner/repository format")
     const assignee = pick(TEAM[args.team])
 
     await githubFetch(`/repos/${owner}/${repo}/issues/${issue}/assignees`, {

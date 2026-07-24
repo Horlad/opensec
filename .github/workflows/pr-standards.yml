@@ -18,24 +18,16 @@ jobs:
             const pr = context.payload.pull_request;
             const login = pr.user.login;
 
-            // Skip PRs older than Feb 18, 2026 at 6PM EST (Feb 19, 2026 00:00 UTC)
-            const cutoff = new Date('2026-02-19T00:00:00Z');
-            const prCreated = new Date(pr.created_at);
-            if (prCreated < cutoff) {
-              console.log(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
-              return;
-            }
-
             // Check if author is a team member or bot
             if (login === 'opencode-agent[bot]') return;
             const { data: file } = await github.rest.repos.getContent({
               owner: context.repo.owner,
               repo: context.repo.repo,
               path: '.github/TEAM_MEMBERS',
-              ref: 'dev'
+              ref: context.payload.repository.default_branch
             });
-            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
-            if (members.includes(login)) {
+            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim().toLowerCase()).filter(Boolean);
+            if (members.includes(login.toLowerCase())) {
               console.log(`Skipping: ${login} is a team member`);
               return;
             }
@@ -108,13 +100,7 @@ jobs:
 
             await removeLabel('needs:title');
 
-            // Step 2: Check for linked issue (skip for docs/refactor/feat PRs)
-            const skipIssueCheck = /^(docs|refactor|feat)\s*(\([a-zA-Z0-9-]+\))?\s*:/.test(title);
-            if (skipIssueCheck) {
-              await removeLabel('needs:issue');
-              console.log('Skipping issue check for docs/refactor/feat PR');
-              return;
-            }
+            // Step 2: Check for linked issue
             const query = `
               query($owner: String!, $repo: String!, $number: Int!) {
                 repository(owner: $owner, name: $repo) {
@@ -165,32 +151,22 @@ jobs:
             const pr = context.payload.pull_request;
             const login = pr.user.login;
 
-            // Skip PRs older than Feb 18, 2026 at 6PM EST (Feb 19, 2026 00:00 UTC)
-            const cutoff = new Date('2026-02-19T00:00:00Z');
-            const prCreated = new Date(pr.created_at);
-            if (prCreated < cutoff) {
-              console.log(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
-              return;
-            }
-
             // Check if author is a team member or bot
             if (login === 'opencode-agent[bot]') return;
             const { data: file } = await github.rest.repos.getContent({
               owner: context.repo.owner,
               repo: context.repo.repo,
               path: '.github/TEAM_MEMBERS',
-              ref: 'dev'
+              ref: context.payload.repository.default_branch
             });
-            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
-            if (members.includes(login)) {
+            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim().toLowerCase()).filter(Boolean);
+            if (members.includes(login.toLowerCase())) {
               console.log(`Skipping: ${login} is a team member`);
               return;
             }
 
             const body = pr.body || '';
             const title = pr.title;
-            const isDocsRefactorOrFeat = /^(docs|refactor|feat)\s*(\([a-zA-Z0-9-]+\))?\s*:/.test(title);
-
             const issues = [];
 
             // Check: template sections exist
@@ -225,8 +201,8 @@ jobs:
               }
             }
 
-            // Check: issue reference (skip for docs/refactor/feat)
-            if (!isDocsRefactorOrFeat && hasIssueSection) {
+            // Check: issue reference
+            if (hasIssueSection) {
               const issueMatch = body.match(/### Issue for this PR\s*\n([\s\S]*?)(?=###|$)/);
               const issueContent = issueMatch ? issueMatch[1].trim() : '';
               const hasIssueRef = /(closes|fixes|resolves)\s+#\d+/i.test(issueContent) || /#\d+/.test(issueContent);
@@ -298,7 +274,7 @@ jobs:
             **What needs to be fixed:**
             ${issues.map(i => `- ${i}`).join('\n')}
 
-            Please edit this PR description to address the above within **2 hours**, or it will be automatically closed.
+            Please edit this PR description to address the above within **24 hours**, or it will be automatically closed.
 
             If you believe this was flagged incorrectly, please let a maintainer know.`;
 

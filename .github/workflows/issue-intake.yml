@@ -1,0 +1,119 @@
+name: issue-intake
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate issue and assign owner
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const issue = context.payload.issue
+            const body = issue.body || ""
+            const title = issue.title || ""
+            const marker = "<!-- issue-compliance -->"
+            const exempt = ["OWNER", "MEMBER"].includes(issue.author_association)
+            const isFeature = title.startsWith("[FEATURE]:")
+            const isQuestion = title.startsWith("[QUESTION]:")
+            const problems = []
+
+            if (!exempt) {
+              if (body.trim().length < 40) {
+                problems.push("Provide enough detail for someone else to understand and reproduce the request.")
+              }
+
+              if (isFeature) {
+                if (!/Feature hasn't been suggested before\./.test(body)) {
+                  problems.push("Use the feature request form and confirm that you searched for existing requests.")
+                }
+                if (!/Describe the enhancement you want to request/.test(body)) {
+                  problems.push("Describe the problem, the proposed enhancement, and its benefit.")
+                }
+              } else if (isQuestion) {
+                if (!/### Question/.test(body)) {
+                  problems.push("Use the question form and include a concrete question.")
+                }
+              } else if (!/### Description/.test(body)) {
+                problems.push("Use the bug report form and include a Description section.")
+              }
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            })
+            const compliance = comments.find((comment) => comment.body?.includes(marker))
+            const hasLabel = issue.labels.some((label) => label.name === "needs:compliance")
+
+            if (problems.length > 0) {
+              if (!hasLabel) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ["needs:compliance"],
+                })
+              }
+
+              const message = `${marker}
+            This issue does not yet meet the [contributing guidelines](../blob/dev/CONTRIBUTING.md).
+
+            **What needs to be fixed:**
+            ${problems.map((problem) => `- ${problem}`).join("\n")}
+
+            Please edit the issue within **24 hours**, or it will be automatically closed.`
+
+              if (compliance) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: compliance.id,
+                  body: message,
+                })
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: message,
+                })
+              }
+            } else if (hasLabel) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                name: "needs:compliance",
+              })
+              if (compliance) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: compliance.id,
+                })
+              }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: "Thanks for updating the issue. It now meets the contribution requirements.",
+              })
+            }
+
+            if (issue.assignees.length === 0) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: ["Horlad"],
+              })
+            }
